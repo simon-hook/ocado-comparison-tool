@@ -1,0 +1,43 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/// Encrypted third-party credentials (currently just Ocado).
+model Credential {
+  id                String   @id @default(cuid())
+  service           String   @unique // e.g. "ocado"
+  username          String
+  /// AES-256-GCM ciphertext (iv:tag:data, base64) — see src/lib/crypto.ts
+  encryptedPassword String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+/// User-confirmed Ocado SKU <-> Amazon ASIN mapping ("fix match" learning).
+model ProductMapping {
+  id          String   @id @default(cuid())
+  ocadoSku    String   @unique
+  asin        String
+  confirmedAt DateTime @default(now())
+}
+
+/// Starred items the user always wants checked.
+model WatchlistItem {
+  id       String   @id @default(cuid())
+  ocadoSku String   @unique
+  title    String
+  addedAt  DateTime @default(now())
+}
+
+/// TTL cache of Amazon search results to keep Apify usage inside free credits.
+model PriceCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique // normalised search query
+  payload   String // JSON-encoded CanonicalItem[]
+  fetchedAt DateTime @default(now())
+}
