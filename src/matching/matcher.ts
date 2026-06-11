@@ -60,10 +60,10 @@ function sizeScore(ocado: CanonicalItem, amazon: CanonicalItem): number {
   const a = ocado.size.count * ocado.size.amount;
   const b = amazon.size.count * amazon.size.amount;
   if (a <= 0 || b <= 0) return 0.5;
-  // Unit-price comparison tolerates size differences; this only nudges
-  // confidence that it's the same product line.
+  // Same unit with a different total is usually just a multipack/bulk size —
+  // unit-price comparison handles that fairly — so only nudge confidence.
   const ratio = Math.min(a, b) / Math.max(a, b);
-  return ratio >= 0.5 ? 1 : ratio * 2;
+  return ratio >= 0.5 ? 1 : 0.75;
 }
 
 export function scoreCandidate(
@@ -102,11 +102,19 @@ export function matchItem(
     ? scored.find((c) => c.item.id === opts.confirmedAsin)
     : undefined;
 
-  const bestMatch =
-    confirmed ??
-    (scored.length > 0 && scored[0].confidence >= minConfidence
-      ? scored[0]
-      : undefined);
+  // Among candidates within a whisker of the top confidence (e.g. the same
+  // product in different pack sizes), prefer the one with the best savings.
+  let auto: ScoredCandidate | undefined;
+  if (scored.length > 0 && scored[0].confidence >= minConfidence) {
+    const nearTop = scored.filter(
+      (c) => scored[0].confidence - c.confidence <= 0.05,
+    );
+    auto = nearTop.reduce((best, c) =>
+      c.savings.savingsPence > best.savings.savingsPence ? c : best,
+    );
+  }
+
+  const bestMatch = confirmed ?? auto;
 
   return {
     ocadoItem: ocado,

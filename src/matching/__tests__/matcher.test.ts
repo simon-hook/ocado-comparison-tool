@@ -94,6 +94,19 @@ describe("matchItem", () => {
     expect(result.candidates.length).toBe(1); // still offered for fix-match
   });
 
+  it("prefers better savings among near-equal-confidence candidates", () => {
+    // Same product, two pack sizes: the cheaper-per-unit one should win.
+    const single = amazonItem({ id: "B0SINGLE", pricePence: 130 });
+    const bulkCheap = amazonItem({
+      id: "B0BULK",
+      title: "Heinz Baked Beanz 415g (Pack of 6)",
+      size: { count: 6, amount: 415, unit: "g" },
+      pricePence: 540, // 90p/can vs 130p single
+    });
+    const result = matchItem(ocadoItem(), [single, bulkCheap]);
+    expect(result.bestMatch?.item.id).toBe("B0BULK");
+  });
+
   it("honours a confirmed ASIN mapping over fuzzy ranking", () => {
     const fuzzyWinner = amazonItem();
     const confirmed = amazonItem({

@@ -1,0 +1,89 @@
+{
+  "comment": "Mock Amazon UK search results keyed by a normalised query fragment. Used by MockAmazonProvider and tests.",
+  "results": {
+    "heinz baked beanz": [
+      {
+        "asin": "B00I3RF1XW",
+        "title": "Heinz Baked Beanz, 415g (Pack of 24)",
+        "brand": "Heinz",
+        "pricePence": 2160,
+        "primeEligible": true,
+        "url": "https://www.amazon.co.uk/dp/B00I3RF1XW"
+      },
+      {
+        "asin": "B07JWDQ5GW",
+        "title": "Heinz Baked Beanz 6 x 415g",
+        "brand": "Heinz",
+        "pricePence": 599,
+        "primeEligible": true,
+        "url": "https://www.amazon.co.uk/dp/B07JWDQ5GW"
+      },
+      {
+        "asin": "B0NONPRIME",
+        "title": "Heinz Baked Beans 415g Single Can",
+        "brand": "Heinz",
+        "pricePence": 95,
+        "primeEligible": false,
+        "url": "https://www.amazon.co.uk/dp/B0NONPRIME"
+      }
+    ],
+    "yorkshire tea": [
+      {
+        "asin": "B0042Q5KX2",
+        "title": "Yorkshire Tea, 160 Tea Bags, 500g",
+        "brand": "Yorkshire Tea",
+        "pricePence": 550,
+        "primeEligible": true,
+        "url": "https://www.amazon.co.uk/dp/B0042Q5KX2"
+      },
+      {
+        "asin": "B005EXAMPL",
+        "title": "Yorkshire Tea 80 Tea Bags 250g",
+        "brand": "Yorkshire Tea",
+        "pricePence": 300,
+        "primeEligible": true,
+        "url": "https://www.amazon.co.uk/dp/B005EXAMPL"
+      }
+    ],
+    "fairy non bio washing liquid": [
+      {
+        "asin": "B07JJ34F1K",
+        "title": "Fairy Non Bio Washing Liquid Laundry Detergent, 70 Washes, 2.45L",
+        "brand": "Fairy",
+        "pricePence": 1200,
+        "primeEligible": true,
+        "url": "https://www.amazon.co.uk/dp/B07JJ34F1K"
+      }
+    ],
+    "coca cola zero sugar": [
+      {
+        "asin": "B01N5T8MWQ",
+        "title": "Coca-Cola Zero Sugar 24 x 330ml Cans",
+        "brand": "Coca-Cola",
+        "pricePence": 1100,
+        "primeEligible": true,
+        "url": "https://www.amazon.co.uk/dp/B01N5T8MWQ"
+      }
+    ],
+    "kellogg s corn flakes": [
+      {
+        "asin": "B00U7G2T1S",
+        "title": "Kellogg's Corn Flakes Cereal 1kg",
+        "brand": "Kellogg's",
+        "pricePence": 380,
+        "primeEligible": true,
+        "url": "https://www.amazon.co.uk/dp/B00U7G2T1S"
+      }
+    ],
+    "andrex supreme quilts toilet roll": [
+      {
+        "asin": "B084WZ8GBN",
+        "title": "Andrex Supreme Quilts Toilet Rolls, 32 Rolls",
+        "brand": "Andrex",
+        "pricePence": 1850,
+        "primeEligible": true,
+        "url": "https://www.amazon.co.uk/dp/B084WZ8GBN"
+      }
+    ]
+  }
+}

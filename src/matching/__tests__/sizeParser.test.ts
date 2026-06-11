@@ -82,6 +82,31 @@ describe("parseSize", () => {
     });
   });
 
+  it("combines a measure with 'Pack of N' (Amazon style)", () => {
+    expect(parseSize("Heinz Baked Beanz, 415g (Pack of 24)")).toEqual({
+      count: 24,
+      amount: 415,
+      unit: "g",
+    });
+  });
+
+  it("combines a measure with 'N Pack'", () => {
+    expect(parseSize("Coca-Cola Zero Sugar 330ml 24 Pack")).toEqual({
+      count: 24,
+      amount: 330,
+      unit: "ml",
+    });
+  });
+
+  it("does NOT multiply weight by content counts like tea bags", () => {
+    // 250g is the total weight of all 80 bags, not 80 x 250g.
+    expect(parseSize("Yorkshire Tea 80 Tea Bags 250g")).toEqual({
+      count: 1,
+      amount: 250,
+      unit: "g",
+    });
+  });
+
   it("returns undefined when no size present", () => {
     expect(parseSize("Fresh Coriander")).toBeUndefined();
   });

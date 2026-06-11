@@ -68,13 +68,22 @@ export function parseSize(text: string): ParsedSize | undefined {
     }
   }
 
-  // 2. Single measure with unit attached or spaced: "415g", "1.5 kg", "75cl"
-  //    Scan all candidates and take the first that resolves to a real unit.
+  // 2. Single measure with unit attached or spaced: "415g", "1.5 kg", "75cl".
+  //    Combined with an explicit pack multiplier elsewhere in the text:
+  //    "415g (Pack of 24)" or "330ml 24 Pack" -> count 24.
+  //    (Content counts like "80 Tea Bags 250g" must NOT multiply the weight.)
   const measureRe = new RegExp(String.raw`${NUM}\s*([a-zA-Z]+)\b`, "g");
   for (const m of text.matchAll(measureRe)) {
     const def = resolveUnit(m[2]);
     if (def) {
-      return { count: 1, amount: toNumber(m[1]) * def.factor, unit: def.unit };
+      const packMulti =
+        text.match(/pack\s+of\s+(\d+)/i) ??
+        text.match(/\b(\d+)\s*(?:pack|pk|cans?|bottles?|tins?|pouches)\b/i);
+      return {
+        count: packMulti ? parseInt(packMulti[1], 10) : 1,
+        amount: toNumber(m[1]) * def.factor,
+        unit: def.unit,
+      };
     }
   }
 

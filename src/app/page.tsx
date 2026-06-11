@@ -1,65 +1,163 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useCallback, useEffect, useState } from "react";
+import type { ComparisonReport } from "@/types/canonical";
+import { ItemCard } from "@/components/ItemCard";
+import { formatPence } from "@/lib/money";
+
+type Status = "idle" | "loading" | "done" | "error";
+
+export default function ComparePage() {
+  const [status, setStatus] = useState<Status>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [report, setReport] = useState<ComparisonReport | null>(null);
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
+  const [starred, setStarred] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/watchlist")
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((data) =>
+        setStarred(
+          new Set((data.items ?? []).map((i: { ocadoSku: string }) => i.ocadoSku)),
+        ),
+      )
+      .catch(() => {});
+  }, []);
+
+  const runCompare = useCallback(async () => {
+    setStatus("loading");
+    setError(null);
+    try {
+      const res = await fetch("/api/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ watchlistOnly }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Comparison failed");
+      setReport(data);
+      setStatus("done");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Comparison failed");
+      setStatus("error");
+    }
+  }, [watchlistOnly]);
+
+  const toggleStar = useCallback(
+    async (sku: string, title: string, nowStarred: boolean) => {
+      setStarred((prev) => {
+        const next = new Set(prev);
+        if (nowStarred) next.add(sku);
+        else next.delete(sku);
+        return next;
+      });
+      await fetch("/api/watchlist", {
+        method: nowStarred ? "POST" : "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ocadoSku: sku, title }),
+      }).catch(() => {});
+    },
+    [],
+  );
+
+  const fixMatch = useCallback(
+    async (sku: string, asin: string) => {
+      await fetch("/api/mappings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ocadoSku: sku, asin }),
+      }).catch(() => {});
+      // Re-run so the confirmed mapping is reflected in the report.
+      runCompare();
+    },
+    [runCompare],
+  );
+
+  const cheaperCount =
+    report?.items.filter(
+      (i) => i.bestMatch && i.bestMatch.savings.savingsPence > 0,
+    ).length ?? 0;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-4">
+      <header>
+        <h1 className="text-xl font-bold">Basket Compare</h1>
+        <p className="text-sm text-gray-500">
+          Your Ocado basket vs Amazon Prime prices
+        </p>
+      </header>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={runCompare}
+          disabled={status === "loading"}
+          className="flex-1 rounded-xl bg-green-600 py-3 font-semibold text-white shadow-sm active:bg-green-700 disabled:opacity-50"
+        >
+          {status === "loading" ? "Comparing…" : "Compare basket"}
+        </button>
+        <label className="flex items-center gap-1.5 text-sm text-gray-600">
+          <input
+            type="checkbox"
+            checked={watchlistOnly}
+            onChange={(e) => setWatchlistOnly(e.target.checked)}
+            className="h-4 w-4 accent-green-600"
+          />
+          ⭐ only
+        </label>
+      </div>
+
+      {status === "loading" && (
+        <p className="text-center text-sm text-gray-500">
+          Fetching basket and checking Amazon — this can take a minute…
+        </p>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      )}
+
+      {report && status === "done" && (
+        <>
+          <div className="rounded-xl bg-green-600 p-4 text-white shadow">
+            <p className="text-sm opacity-90">Total potential saving</p>
+            <p className="text-3xl font-bold">
+              {formatPence(report.totalPotentialSavingsPence)}
+            </p>
+            <p className="mt-1 text-xs opacity-75">
+              {cheaperCount} of {report.items.length} items cheaper on Amazon ·
+              like-for-like by unit price where possible
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {[...report.items]
+              .sort(
+                (a, b) =>
+                  (b.bestMatch?.savings.savingsPence ?? -Infinity) -
+                  (a.bestMatch?.savings.savingsPence ?? -Infinity),
+              )
+              .map((result) => (
+                <ItemCard
+                  key={result.ocadoItem.id}
+                  result={result}
+                  starred={starred.has(result.ocadoItem.id)}
+                  onToggleStar={toggleStar}
+                  onFixMatch={fixMatch}
+                />
+              ))}
+          </div>
+        </>
+      )}
+
+      {status === "idle" && (
+        <p className="pt-8 text-center text-sm text-gray-400">
+          Tap “Compare basket” to fetch your Ocado basket and check Amazon
+          prices.
+        </p>
+      )}
     </div>
   );
 }

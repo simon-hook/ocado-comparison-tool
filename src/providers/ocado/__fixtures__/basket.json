@@ -1,0 +1,69 @@
+{
+  "comment": "Realistic mock Ocado basket used by MockOcadoProvider and tests.",
+  "items": [
+    {
+      "sku": "13175011",
+      "title": "Heinz Baked Beanz 415g",
+      "brand": "Heinz",
+      "quantity": 4,
+      "pricePence": 140,
+      "url": "https://www.ocado.com/products/heinz-baked-beanz-13175011"
+    },
+    {
+      "sku": "65448011",
+      "title": "Yorkshire Tea 80 Tea Bags 250g",
+      "brand": "Yorkshire Tea",
+      "quantity": 1,
+      "pricePence": 329,
+      "url": "https://www.ocado.com/products/yorkshire-tea-65448011"
+    },
+    {
+      "sku": "23476011",
+      "title": "Fairy Non Bio Washing Liquid 35 Washes 1.225L",
+      "brand": "Fairy",
+      "quantity": 1,
+      "pricePence": 700,
+      "url": "https://www.ocado.com/products/fairy-non-bio-23476011"
+    },
+    {
+      "sku": "78122011",
+      "title": "Coca-Cola Zero Sugar 6 x 330ml",
+      "brand": "Coca-Cola",
+      "quantity": 2,
+      "pricePence": 425,
+      "url": "https://www.ocado.com/products/coca-cola-zero-78122011"
+    },
+    {
+      "sku": "29981011",
+      "title": "Kellogg's Corn Flakes 720g",
+      "brand": "Kellogg's",
+      "quantity": 1,
+      "pricePence": 320,
+      "url": "https://www.ocado.com/products/kelloggs-corn-flakes-29981011"
+    },
+    {
+      "sku": "44310011",
+      "title": "Ocado Semi Skimmed Milk 4 Pints",
+      "brand": "Ocado",
+      "quantity": 2,
+      "pricePence": 145,
+      "url": "https://www.ocado.com/products/ocado-milk-44310011"
+    },
+    {
+      "sku": "55672011",
+      "title": "Andrex Supreme Quilts Toilet Roll 16 Rolls",
+      "brand": "Andrex",
+      "quantity": 1,
+      "pricePence": 1100,
+      "url": "https://www.ocado.com/products/andrex-supreme-55672011"
+    },
+    {
+      "sku": "61234011",
+      "title": "Fresh Coriander 30g",
+      "brand": "Ocado",
+      "quantity": 1,
+      "pricePence": 52,
+      "url": "https://www.ocado.com/products/coriander-61234011"
+    }
+  ]
+}
