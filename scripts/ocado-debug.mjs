@@ -12,7 +12,7 @@ import readline from "node:readline";
 
 const SESSION_DIR = path.join(process.cwd(), ".data");
 const SESSION_FILE = path.join(SESSION_DIR, "ocado-session.json");
-const TROLLEY_URL = "https://www.ocado.com/trolley";
+const BASKET_URL = "https://www.ocado.com/basket";
 
 function waitForEnter(q) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -34,11 +34,11 @@ async function main() {
   });
   const page = await context.newPage();
 
-  await page.goto(TROLLEY_URL, { waitUntil: "domcontentloaded" });
+  await page.goto(BASKET_URL, { waitUntil: "domcontentloaded" });
   try {
     await page.locator("#onetrust-accept-btn-handler").click({ timeout: 3000 });
   } catch {}
-  // Give the single-page app time to render the trolley.
+  // Give the single-page app time to render the basket.
   await page.waitForTimeout(5000);
 
   console.log("\n==================== OCADO PAGE REPORT ====================");

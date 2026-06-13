@@ -20,7 +20,7 @@ import { SESSION_DIR, SESSION_FILE } from "./session";
  */
 
 const OCADO = {
-  trolleyUrl: "https://www.ocado.com/trolley",
+  trolleyUrl: "https://www.ocado.com/basket",
   selectors: {
     cookieAccept: "#onetrust-accept-btn-handler",
     loggedInMarker: '[data-test="user-menu"], a[href*="logout"]',
