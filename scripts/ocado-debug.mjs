@@ -59,39 +59,26 @@ async function main() {
   }));
   console.log("Counts    :", JSON.stringify(counts));
 
-  // Heuristic: from each product link, climb to the nearest ancestor that also
-  // contains a price, and dump that container's HTML — that's a basket row.
-  const rows = await page.evaluate(() => {
-    const links = Array.from(document.querySelectorAll('a[href*="/products/"]'));
-    const seen = new Set();
-    const out = [];
-    for (const link of links) {
-      let el = link;
-      for (let i = 0; i < 8 && el; i++) {
-        if (/£\s*\d/.test(el.textContent || "")) break;
-        el = el.parentElement;
-      }
-      if (!el) continue;
-      const sig = `${el.tagName}.${el.className}`;
-      if (seen.has(sig)) continue;
-      seen.add(sig);
-      out.push({
-        tag: el.tagName,
-        className: el.className,
-        dataTest: el.getAttribute("data-test"),
-        html: el.outerHTML.slice(0, 2500),
-      });
-      if (out.length >= 3) break;
-    }
-    return out;
+  // Ocado uses randomised CSS classes but stable data-test attributes.
+  // List the unique data-test hooks, and dump the first full basket-item card
+  // so we can see the price and quantity controls.
+  const report = await page.evaluate(() => {
+    const dataTests = Array.from(
+      new Set(
+        Array.from(document.querySelectorAll("[data-test]")).map((e) =>
+          e.getAttribute("data-test"),
+        ),
+      ),
+    ).sort();
+    const card = document.querySelector(".product-card-container");
+    return { dataTests, cardHtml: card ? card.outerHTML.slice(0, 9000) : null };
   });
 
-  console.log(`\nFound ${rows.length} candidate basket row(s):`);
-  rows.forEach((r, i) => {
-    console.log(`\n--------- candidate row ${i + 1} ---------`);
-    console.log(`container: <${r.tag.toLowerCase()} class="${r.className}" data-test="${r.dataTest}">`);
-    console.log(r.html);
-  });
+  console.log("\nUnique data-test values on the page:");
+  console.log(report.dataTests.join("\n"));
+
+  console.log("\n--------- first .product-card-container (full) ---------");
+  console.log(report.cardHtml ?? "(none found)");
 
   const htmlPath = path.join(SESSION_DIR, "ocado-trolley.html");
   const shotPath = path.join(SESSION_DIR, "ocado-trolley.png");
