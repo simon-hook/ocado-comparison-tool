@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verify } from "@/lib/crypto";
 
-// Node runtime so we can reuse the HMAC cookie signing from lib/crypto.
-export const runtime = "nodejs";
+// Renamed from middleware -> proxy for Next.js 16 (the "middleware" file
+// convention is deprecated). Proxy defaults to the Node.js runtime, so the
+// HMAC cookie verification from lib/crypto works without any runtime config
+// (the `runtime` option is not allowed in proxy files).
 
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/manifest.json", "/sw.js"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   if (!process.env.APP_PASSWORD) return NextResponse.next(); // auth disabled
 
   const { pathname } = request.nextUrl;
