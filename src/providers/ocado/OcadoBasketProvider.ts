@@ -19,16 +19,16 @@ import { SESSION_DIR, SESSION_FILE } from "./session";
  * live site (DevTools) on first run — see README "Going live".
  */
 
+// Ocado's CSS classes are randomised per build, so we anchor on its stable
+// data-test attributes instead (verified live, June 2026).
 const OCADO = {
-  trolleyUrl: "https://www.ocado.com/basket",
+  basketUrl: "https://www.ocado.com/basket",
   selectors: {
     cookieAccept: "#onetrust-accept-btn-handler",
-    loggedInMarker: '[data-test="user-menu"], a[href*="logout"]',
-    trolleyItem: '[data-test="trolley-item"], [class*="trolley-item"]',
-    itemTitle: '[data-test="item-title"], a[class*="title"]',
-    itemPrice: '[data-test="item-price"], [class*="price"]',
-    itemQuantity: 'input[data-test="quantity"], [class*="quantity"] input',
-    itemLink: "a[href*='/products/']",
+    loggedInMarker: '[data-test="account-dropdown-button"]',
+    // Each basket line is a product card containing a price + product link.
+    basketItem: ".product-card-container",
+    emptyBasket: '[data-test="empty-basket-button"]',
   },
 } as const;
 
@@ -59,7 +59,7 @@ export class OcadoBasketProvider implements BasketProvider {
       });
       const page = await context.newPage();
 
-      await page.goto(OCADO.trolleyUrl, { waitUntil: "domcontentloaded" });
+      await page.goto(OCADO.basketUrl, { waitUntil: "domcontentloaded" });
       await this.dismissCookieBanner(page);
 
       if (!(await this.isLoggedIn(page))) {
@@ -88,11 +88,13 @@ export class OcadoBasketProvider implements BasketProvider {
   }
 
   private async isLoggedIn(page: Page): Promise<boolean> {
+    // A redirect to a sign-in/welcome page means the session is gone.
+    if (/sign-?in|login|register|welcome/i.test(page.url())) return false;
     try {
       await page
         .locator(OCADO.selectors.loggedInMarker)
         .first()
-        .waitFor({ timeout: 5000 });
+        .waitFor({ timeout: 8000 });
       return true;
     } catch {
       return false;
@@ -100,57 +102,72 @@ export class OcadoBasketProvider implements BasketProvider {
   }
 
   private async scrapeTrolley(page: Page): Promise<CanonicalItem[]> {
+    // Wait for either basket lines or the empty-basket state to render.
     await page
-      .locator(OCADO.selectors.trolleyItem)
+      .locator(`${OCADO.selectors.basketItem}, ${OCADO.selectors.emptyBasket}`)
       .first()
       .waitFor({ timeout: 15000 })
       .catch(() => {
-        // Empty basket is legitimate — return [] below if no rows.
+        // Empty/slow basket — return [] below if no rows are found.
       });
 
-    const rows = page.locator(OCADO.selectors.trolleyItem);
-    const count = await rows.count();
+    // Extract per-line fields in the browser using stable data-test hooks.
+    const rows = await page.evaluate((sel) => {
+      const clean = (el: Element | null | undefined) =>
+        (el?.textContent ?? "").replace(/\s+/g, " ").trim();
+
+      return Array.from(document.querySelectorAll(sel.basketItem))
+        .filter(
+          (card) =>
+            !card.closest('[data-test^="carousel"]') &&
+            card.querySelector('[data-test="fop-price"]') &&
+            card.querySelector('[data-test="fop-product-link"]'),
+        )
+        .map((card) => {
+          const qtyEl = card.querySelector('[data-test="quantity-in-basket"]');
+          let qtyText = qtyEl
+            ? (qtyEl as HTMLInputElement).value || clean(qtyEl)
+            : "";
+          if (!/\d/.test(qtyText)) {
+            const m = clean(card).match(/You have (\d+) of this item/i);
+            qtyText = m ? m[1] : "1";
+          }
+          // fop-size's first span is the pack weight/size, e.g. "40g".
+          const sizeEl = card.querySelector('[data-test="fop-size"]');
+          return {
+            href:
+              card
+                .querySelector('[data-test="fop-product-link"]')
+                ?.getAttribute("href") ?? "",
+            title: clean(card.querySelector('[data-test="fop-title"]')),
+            priceText: clean(card.querySelector('[data-test="fop-price"]')),
+            sizeText: clean(sizeEl?.querySelector("span")),
+            qtyText,
+          };
+        });
+    }, OCADO.selectors);
+
     const items: CanonicalItem[] = [];
+    for (const row of rows) {
+      const linePence = parsePricePence(row.priceText);
+      if (!row.title || linePence === undefined) continue;
 
-    for (let i = 0; i < count; i++) {
-      const row = rows.nth(i);
-      const title =
-        (await row
-          .locator(OCADO.selectors.itemTitle)
-          .first()
-          .textContent()
-          .catch(() => null)) ?? "";
-      const priceText =
-        (await row
-          .locator(OCADO.selectors.itemPrice)
-          .first()
-          .textContent()
-          .catch(() => null)) ?? "";
-      const qtyValue = await row
-        .locator(OCADO.selectors.itemQuantity)
-        .first()
-        .inputValue()
-        .catch(() => "1");
-      const href =
-        (await row
-          .locator(OCADO.selectors.itemLink)
-          .first()
-          .getAttribute("href")
-          .catch(() => null)) ?? "";
-
-      const pricePence = parsePricePence(priceText);
-      if (!title.trim() || pricePence === undefined) continue;
-
-      // Ocado product URLs end in the SKU: /products/some-name-13175011
-      const sku = href.match(/(\d+)\/?$/)?.[1] ?? `row-${i}`;
+      const quantity = Math.max(1, parseInt(row.qtyText, 10) || 1);
+      // Ocado product URLs end in the SKU: /products/<slug>/583657011
+      const sku = row.href.match(/(\d+)\/?$/)?.[1] ?? row.href;
 
       items.push(
         toCanonical("ocado", {
           id: sku,
-          title: title.trim(),
-          quantity: Math.max(1, parseInt(qtyValue, 10) || 1),
-          pricePence,
-          url: href.startsWith("http") ? href : `https://www.ocado.com${href}`,
+          title: row.title,
+          quantity,
+          // fop-price is the line total for the quantity; store per-pack price
+          // so downstream `pricePence * quantity` reconstructs the line cost.
+          pricePence: Math.round(linePence / quantity),
+          url: row.href.startsWith("http")
+            ? row.href
+            : `https://www.ocado.com${row.href}`,
+          sizeText: row.sizeText || undefined,
         }),
       );
     }
