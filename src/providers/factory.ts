@@ -1,8 +1,6 @@
 import type { AmazonProvider, BasketProvider } from "./types";
 import { MockOcadoProvider } from "./ocado/MockOcadoProvider";
 import { MockAmazonProvider } from "./amazon/MockAmazonProvider";
-import { decrypt } from "@/lib/crypto";
-import { db } from "@/lib/db";
 
 /**
  * PROVIDERS_MODE=mock  -> fixture providers (default; safe for development)
@@ -18,17 +16,10 @@ function mode(): "mock" | "live" {
 export async function getBasketProvider(): Promise<BasketProvider> {
   if (mode() === "mock") return new MockOcadoProvider();
 
-  const cred = await db.credential.findUnique({ where: { service: "ocado" } });
-  if (!cred) {
-    throw new Error(
-      "No Ocado credentials saved — add them on the Settings page.",
-    );
-  }
+  // Live auth is via the saved session from `npm run ocado:login` — no stored
+  // password needed. The provider throws a helpful BasketAuthError if missing.
   const { OcadoBasketProvider } = await import("./ocado/OcadoBasketProvider");
-  return new OcadoBasketProvider({
-    username: cred.username,
-    password: decrypt(cred.encryptedPassword),
-  });
+  return new OcadoBasketProvider();
 }
 
 export async function getAmazonProvider(): Promise<AmazonProvider> {

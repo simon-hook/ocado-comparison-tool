@@ -1,31 +1,28 @@
 import { chromium, type BrowserContext, type Page } from "playwright";
 import { existsSync, mkdirSync } from "node:fs";
-import path from "node:path";
 import type { CanonicalItem } from "@/types/canonical";
 import { BasketAuthError, type BasketProvider } from "../types";
 import { toCanonical } from "../normalise";
+import { SESSION_DIR, SESSION_FILE } from "./session";
 
 /**
- * Fetches the live Ocado basket by logging in with Playwright.
+ * Fetches the live Ocado basket with Playwright, reusing a session created
+ * interactively via `npm run ocado:login` (see scripts/ocado-login.mjs).
  *
- * Session cookies are persisted to .data/ocado-session.json so login only
- * happens when the session expires. If Ocado challenges with captcha/MFA the
- * provider throws BasketAuthError and the UI shows a "needs manual sign-in"
- * state rather than hammering the login.
+ * We deliberately do NOT automate Ocado's JS-rendered login form: it's brittle
+ * and can't clear MFA/captcha. Instead the user signs in once in a real browser
+ * window; the session cookies are saved to .data/ocado-session.json and reused
+ * here headlessly until they expire.
  *
- * NOTE: selectors below are best-effort against Ocado's current SPA and are
- * centralised here so a site change is a one-file fix. Verify against the
+ * NOTE: the trolley selectors below are best-effort against Ocado's current SPA
+ * and centralised here so a site change is a one-file fix. Verify against the
  * live site (DevTools) on first run — see README "Going live".
  */
 
 const OCADO = {
-  loginUrl: "https://www.ocado.com/webshop/startLogin.do",
   trolleyUrl: "https://www.ocado.com/trolley",
   selectors: {
     cookieAccept: "#onetrust-accept-btn-handler",
-    username: 'input[name="username"], input[type="email"]',
-    password: 'input[name="password"], input[type="password"]',
-    loginSubmit: 'button[type="submit"]',
     loggedInMarker: '[data-test="user-menu"], a[href*="logout"]',
     trolleyItem: '[data-test="trolley-item"], [class*="trolley-item"]',
     itemTitle: '[data-test="item-title"], a[class*="title"]',
@@ -35,27 +32,28 @@ const OCADO = {
   },
 } as const;
 
-const SESSION_DIR = path.join(process.cwd(), ".data");
-const SESSION_FILE = path.join(SESSION_DIR, "ocado-session.json");
-
-export interface OcadoCredentials {
-  username: string;
-  password: string;
-}
-
 function parsePricePence(text: string): number | undefined {
   const m = text.replace(/,/g, "").match(/£?\s*(\d+(?:\.\d{1,2})?)/);
   return m ? Math.round(parseFloat(m[1]) * 100) : undefined;
 }
 
 export class OcadoBasketProvider implements BasketProvider {
-  constructor(private readonly credentials: OcadoCredentials) {}
 
   async fetchBasket(): Promise<CanonicalItem[]> {
+    // We rely on a session created interactively via `npm run ocado:login`.
+    // Automating Ocado's JS-rendered login form headlessly is fragile and
+    // can't clear MFA/captcha; reusing a real session is far more robust.
+    if (!existsSync(SESSION_FILE)) {
+      throw new BasketAuthError(
+        "No saved Ocado session. Run `npm run ocado:login` once to sign in, " +
+          "then try again.",
+      );
+    }
+
     const browser = await chromium.launch({ headless: true });
     try {
       const context = await browser.newContext({
-        storageState: existsSync(SESSION_FILE) ? SESSION_FILE : undefined,
+        storageState: SESSION_FILE,
         viewport: { width: 1280, height: 900 },
         locale: "en-GB",
       });
@@ -65,12 +63,14 @@ export class OcadoBasketProvider implements BasketProvider {
       await this.dismissCookieBanner(page);
 
       if (!(await this.isLoggedIn(page))) {
-        await this.login(page);
-        await page.goto(OCADO.trolleyUrl, { waitUntil: "domcontentloaded" });
+        throw new BasketAuthError(
+          "Your saved Ocado session has expired. Run `npm run ocado:login` " +
+            "to sign in again, then retry.",
+        );
       }
 
       const items = await this.scrapeTrolley(page);
-      await this.saveSession(context);
+      await this.saveSession(context); // refresh rolling cookies
       return items;
     } finally {
       await browser.close();
@@ -96,36 +96,6 @@ export class OcadoBasketProvider implements BasketProvider {
       return true;
     } catch {
       return false;
-    }
-  }
-
-  private async login(page: Page): Promise<void> {
-    await page.goto(OCADO.loginUrl, { waitUntil: "domcontentloaded" });
-    await this.dismissCookieBanner(page);
-
-    try {
-      await page
-        .locator(OCADO.selectors.username)
-        .first()
-        .fill(this.credentials.username, { timeout: 10000 });
-      await page
-        .locator(OCADO.selectors.password)
-        .first()
-        .fill(this.credentials.password);
-      await page.locator(OCADO.selectors.loginSubmit).first().click();
-      await page.waitForLoadState("networkidle", { timeout: 20000 });
-    } catch {
-      throw new BasketAuthError(
-        "Could not complete Ocado login form — the page layout may have changed.",
-      );
-    }
-
-    // Captcha / MFA / failed credentials all surface as "still not logged in".
-    if (!(await this.isLoggedIn(page))) {
-      throw new BasketAuthError(
-        "Ocado login did not succeed (possible captcha, MFA or wrong credentials). " +
-          "Sign in manually in a browser, or retry later.",
-      );
     }
   }
 

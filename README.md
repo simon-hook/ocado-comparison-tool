@@ -39,16 +39,21 @@ Open the app and tap **Compare basket** — it runs against the bundled fixture 
 
 1. **Apify**: create a free account, copy your API token into `APIFY_TOKEN` in `.env`.
    (Default actor is `junglee/amazon-crawler`; override with `APIFY_ACTOR_ID`.)
-2. Set `PROVIDERS_MODE="live"` in `.env`.
+2. Set `PROVIDERS_MODE="live"` in `.env` and restart (`.env` is read at startup).
 3. Install the Playwright browser: `npx playwright install chromium`.
-4. Start the app, go to **Settings**, and save your Ocado email + password.
-5. **Verify the Ocado selectors.** Ocado is a single-page app and its markup changes.
-   All selectors live in one place — `src/providers/ocado/OcadoBasketProvider.ts`
-   (the `OCADO.selectors` object). On first run, if the basket comes back empty,
-   open Ocado in your browser's DevTools and update those selectors to match.
-6. If Ocado challenges login with a captcha/MFA, the app surfaces a
-   "needs manual sign-in" message rather than retrying — sign in manually and
-   retry later (the session cookie is reused from `.data/ocado-session.json`).
+4. **Sign in to Ocado once** — on the machine hosting the app, run:
+   ```bash
+   npm run ocado:login
+   ```
+   A real browser window opens; log in (including any 2-step verification), then
+   press Enter in the terminal. The session is saved to `.data/ocado-session.json`
+   and reused headlessly. Re-run this whenever a comparison says the session has
+   expired. (We don't automate the login form — it's brittle and can't clear MFA.)
+5. **Verify the trolley selectors.** Ocado is a single-page app and its markup
+   changes. The selectors live in one place — the `OCADO.selectors` object in
+   `src/providers/ocado/OcadoBasketProvider.ts`. On first run, if the basket comes
+   back empty, open your Ocado trolley in your browser's DevTools and update those
+   selectors to match.
 
 ### Optional: password-protect the app
 
